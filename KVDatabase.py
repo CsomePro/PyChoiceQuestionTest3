@@ -5,13 +5,20 @@ import typing
 
 
 class KVDatabase:
+    """
+    数据库抽象类
+    get_index() 获取index，上层提供idx索引
+    read(int) create(Object) update(int, Object) delete(int) 经典CURD操作
+    read_all(int) 获取一定数量的数据序列
+    save() load() 加载以及保存数据库
+    """
     def __init__(self, *args, **kwargs):
         pass
 
-    def get_index(self):
+    def get_index(self) -> typing.List:
         pass
 
-    def read_all(self, limit=-1):
+    def read_all(self, limit=-1) -> typing.List[typing.Tuple[int, Question]]:
         pass
 
     def read(self, idx) -> Question:
