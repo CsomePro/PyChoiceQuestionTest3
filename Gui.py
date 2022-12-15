@@ -321,7 +321,7 @@ class OptionItemView(ItemView):
 
 
 class QuestionDetail(simpledialog.Dialog):
-    def __init__(self, parent, qid=0):
+    def __init__(self, parent, qid=-1):
         self.songAttr = ["ID", "题面", "正确选项"]
         # self.strings = [StringVar() for _ in range(len(self.songAttr))]
         self.qid = qid
@@ -332,7 +332,7 @@ class QuestionDetail(simpledialog.Dialog):
     def body(self, master):
         labels = [Label(master, text=_) for _ in self.songAttr]
         self.id_str = StringVar()
-        self.id_view = Label(master, textvariable=self.id_str)
+        self.id_view = Entry(master, textvariable=self.id_str)
         self.surface_text = Text(master, height=10)
         self.f0 = Frame(master)
         self.f1 = Frame(self.f0)
@@ -354,8 +354,13 @@ class QuestionDetail(simpledialog.Dialog):
         #     pass
         #
         # loadSongInfo()
-        self.id_str.set(str(self.qid))
-        self.render_question(global_database.read(self.qid))
+        if self.qid != -1:
+            self.id_view.config(state='readonly')
+            self.id_str.set(str(self.qid))
+            self.render_question(global_database.read(self.qid))
+        else:
+            tmp = Question(problemSurface="题目描述", answer=[0,0,0], options=['选项1','选项2', '选项3'])
+            self.render_question(tmp)
 
         return None
 
@@ -378,6 +383,8 @@ class QuestionDetail(simpledialog.Dialog):
             it.set(*t)
 
     def apply(self):
+        if not self.id_str.get() or int(self.id_str.get()) < 0:
+            return
         self.check()
         tmp = list(filter(lambda x: 0 <= x[0] <= 1 and x[1].strip(), map(lambda x: x.get(), self.items)))
         answer, options = zip(*tmp)
@@ -385,7 +392,7 @@ class QuestionDetail(simpledialog.Dialog):
         q = Question(problemSurface=self.surface_text.get('1.0', END), answer=answer, options=options,
                  pType=QuestionType.SINGLE if sum(answer) == 1 else QuestionType.MULTIPLE)
         global_database.update(int(self.id_str.get()), q)
-        showinfo("修改成功", f"修改成功")
+        showinfo("提示", f"成功")
 
     def buttonbox(self):
         box = Frame(self)
@@ -420,6 +427,7 @@ class QuestionManageFrame(FrameAll):
         self.myTreeView.bind('<<TreeviewSelect>>', self.treeViewSelect)
         self.myTreeView.bind('<Double-Button-1>', self.detail)
         self.myMenu.add_command(label='刷新', command=self.refresh)
+        self.myMenu.add_command(label='添加', command=self.add_question)
         self.myMenu.add_command(label='编辑', command=self.detail)
         self.drawFrame()
         self.refresh()
@@ -455,6 +463,10 @@ class QuestionManageFrame(FrameAll):
         tmp = event.widget.item(event.widget.selection())['text']
         if tmp:
             self.sid = int(tmp)
+
+    def add_question(self):
+        QuestionDetail(self)
+        self.refresh()
 
     def detail(self, *args, **kwargs):
         QuestionDetail(self, self.sid)
@@ -532,7 +544,13 @@ class Gui:
 
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
         ScaleFactor = ctypes.windll.shcore.GetScaleFactorForDevice(0)
-        self.root = Tk()
+        try:
+            from ttkbootstrap import Style
+            style = Style(theme='cosmo')
+            self.root = style.master
+        except ImportError:
+            self.root = Tk()
+        # self.root = style.master
         self.root.title('CodeCompressor by CSOME')
         self.root.geometry('800x600+100+100')
         self.root.tk.call('tk', 'scaling', ScaleFactor / 75)
