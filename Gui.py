@@ -429,6 +429,7 @@ class QuestionManageFrame(FrameAll):
         self.myMenu.add_command(label='刷新', command=self.refresh)
         self.myMenu.add_command(label='添加', command=self.add_question)
         self.myMenu.add_command(label='编辑', command=self.detail)
+        self.myMenu.add_command(label='删除', command=self.delete)
         self.drawFrame()
         self.refresh()
 
@@ -463,6 +464,10 @@ class QuestionManageFrame(FrameAll):
         tmp = event.widget.item(event.widget.selection())['text']
         if tmp:
             self.sid = int(tmp)
+
+    def delete(self):
+        global_database.delete(self.sid)
+        self.refresh()
 
     def add_question(self):
         QuestionDetail(self)
@@ -526,7 +531,7 @@ class RExpParse(FrameAll):
         s = json.dumps(self.re_root.save())
         with open("user.json", "w") as f:
             f.write(s)
-        global_database.save_json()
+        global_database.save()
 
     def load(self):
         with open("user.json", "r") as f:
@@ -555,11 +560,32 @@ class Gui:
         self.root.geometry('800x600+100+100')
         self.root.tk.call('tk', 'scaling', ScaleFactor / 75)
 
+        self.menu = Menu(self.root)
+        self.root.config(menu=self.menu)
+
+        self.file_menu = Menu(self.menu)
+        self.menu.add_cascade(label="文件", menu=self.file_menu)
+
+        self.bank_menu = Menu(self.menu, tearoff=False)
+        self.file_menu.add_cascade(label="切换题库", menu=self.bank_menu)
+        banks = global_database.get_bank()
+        if banks:
+            for bank in banks:
+                self.bank_menu.add_command(label=bank, command=self.d_switch(bank))
+
         self.notebook = Notebook(self.root)
         self.notebook.place(relx=0, rely=0, relwidth=1, relheight=1)
         for k, v in self.make_frame().items():
             v.place(relx=0, rely=0, relwidth=1, relheight=1)
             self.notebook.add(v, text=k)
+
+
+    def d_switch(self, bank):
+        def switch():
+            global_database.switch(bank)
+
+        return switch
+
 
     def make_frame(self) -> dict:
         self.practice = Practice(self.root)
@@ -576,7 +602,7 @@ class Gui:
 
 
 if __name__ == '__main__':
-    global_database = KVDatabase.getKVDatabase("question", "test.json")
+    global_database = KVDatabase.getKVDatabase("question", "./bank/test.json")
     sc = Schedule([global_database])
     a = Gui()
     sc.start()
