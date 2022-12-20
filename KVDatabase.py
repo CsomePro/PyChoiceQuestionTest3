@@ -63,8 +63,8 @@ class KVDatabase:
     @staticmethod
     def getKVDatabase(mode='None', *args, **kwargs):
         if mode == 'question':
-            # return KVDatabase_json(*args, **kwargs)
-            return KVDatabase_redis(*args, **kwargs)
+            return KVDatabase_json(*args, **kwargs)
+            # return KVDatabase_redis(*args, **kwargs)
 
 
 class KVDatabase_json(KVDatabase, ScheduleTask, BankDatabase):
@@ -145,7 +145,6 @@ class KVDatabase_redis(KVDatabase, ScheduleTask, BankDatabase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         super(KVDatabase, self).__init__(10)
-        import redis
         self.redis = self.connect()
         self.last_idx: int = max([0] + self.get_index())
 
@@ -218,7 +217,7 @@ class KVDatabase_redis(KVDatabase, ScheduleTask, BankDatabase):
 
 if __name__ == '__main__':
     # kvj = KVDatabase_json("bank/test.json")
-    kvj = KVDatabase_redis()
+    # kvj = KVDatabase_redis()
     # q1 = Question("1+1=?", [1, 0], ["2", "1"], QuestionType.SINGLE)
     # q2 = Question("1+1<=?", [1, 0, 1], ["2", "1", "3"], QuestionType.MULTIPLE)
     # q3 = Question("1+1=2?", [1, 0], ["yes", "no"], QuestionType.JUDGEMENTAL)
@@ -229,3 +228,14 @@ if __name__ == '__main__':
     # print(kvj.read(3))
     # print(kvj.get_index())
     # print(kvj.get_bank())
+
+    def test(kvj: KVDatabase):
+        import time
+        s = time.time()
+        for i in range(100000):
+            kvj.read(1)
+        print(time.time() - s)
+
+    test(KVDatabase_json("bank/test.json"))
+    test(KVDatabase_redis())
+

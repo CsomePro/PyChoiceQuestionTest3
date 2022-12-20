@@ -103,8 +103,8 @@ class Practice(FrameAll):
         self.acceptBtn = Button(self.operate, text="确认", command=self.accept)
         self.cleanBtn = Button(self.operate, text="清空", command=self.clean)
         self.nextBtn = Button(self.operate, text="下一题", command=self.next_question)
-        self.preBtn = Button(self.operate, text="上一题", command=self.pre_question)
-        for btn in [self.startBtn, self.acceptBtn, self.cleanBtn, self.preBtn, self.nextBtn]:
+        # self.preBtn = Button(self.operate, text="上一题", command=self.pre_question)
+        for btn in [self.startBtn, self.acceptBtn, self.cleanBtn, self.nextBtn]:
             btn.pack(side=TOP, fill=Y)
 
         self.combo = StringVar()
@@ -123,7 +123,11 @@ class Practice(FrameAll):
         self.database = global_database
         self.judge: typing.Optional[JudgeFrame] = None
 
-    def make_strings(self, *args):
+    def make_strings(self, *args, **kwargs):
+        if kwargs.get('prefix', None) is not None:
+            for s, string, prefix in zip(args, self.strings, kwargs['prefix']):
+                string.set(f"{prefix}{s}")
+            return
         for s, string in zip(args, self.strings):
             string.set(str(s))
 
@@ -138,12 +142,13 @@ class Practice(FrameAll):
         self.question_surface.insert('1.0', surface)
 
     def render_report(self, rp: Report):
-        self.make_strings(rp.combo, rp.accum, rp.get_score_proportion())
+        self.make_strings(rp.combo, rp.accum, rp.get_score_proportion(), prefix=['Combo: ', 'Acc: ', 'Score: '])
 
     def next_question(self):
         question = self.question_generator.generate(self.question_judge)
         print(question)
         if question is None:
+            showinfo("提示", "本次练习已经结束了")
             return
         self.render_options(question.options, question.type)
         self.render_surface(question.problemSurface)
@@ -184,8 +189,8 @@ class RExpTreeView(ItemView):
         self.combo = Combobox(self.f1, width=3, values=['0'])
         self.combo.current(0)
         self.combo.pack(side=LEFT, anchor=NW)
-        self.combo2 = Combobox(self.f1, width=3, values=['none', 'surface', 'answer',
-                                                         'A', 'B', 'C', 'D', 'E', 'F', 'G'])
+        self.combo2 = Combobox(self.f1, width=3, values=['none', 'surface', 'answer']
+                                                        + list('ABCDEFGHIJKLMNOPQRSTUVWXYZ'))
         self.combo2.current(0)
         self.combo2.pack(side=LEFT, anchor=NW)
         Button(self.f1, text='+', command=self.add_child, width=3).pack(side=LEFT, anchor=NW)
@@ -359,7 +364,7 @@ class QuestionDetail(simpledialog.Dialog):
             self.id_str.set(str(self.qid))
             self.render_question(global_database.read(self.qid))
         else:
-            tmp = Question(problemSurface="题目描述", answer=[0,0,0], options=['选项1','选项2', '选项3'])
+            tmp = Question(problemSurface="题目描述", answer=[0, 0, 0], options=['选项1', '选项2', '选项3'])
             self.render_question(tmp)
 
         return None
@@ -390,7 +395,7 @@ class QuestionDetail(simpledialog.Dialog):
         answer, options = zip(*tmp)
         print(answer, options)
         q = Question(problemSurface=self.surface_text.get('1.0', END), answer=answer, options=options,
-                 pType=QuestionType.SINGLE if sum(answer) == 1 else QuestionType.MULTIPLE)
+                     pType=QuestionType.SINGLE if sum(answer) == 1 else QuestionType.MULTIPLE)
         global_database.update(int(self.id_str.get()), q)
         showinfo("提示", f"成功")
 
@@ -487,24 +492,47 @@ class RExpParse(FrameAll):
         self.text = Text(self)
         self.re_frame = RExpFrame(self, self.re_root)
         self.operate_frame = Frame(self)
+        self.log_view = Text(self)
         list(self.re_frame.tree_list_frame.children.values())[0].deleteBtn.destroy()
 
         self.text.place(relx=0, rely=0, relwidth=0.5, relheight=1)
         self.re_frame.place(relx=0.5, rely=0, relwidth=0.5, relheight=0.7)
-        self.operate_frame.place(relx=0.5, rely=0.7, relwidth=0.5, relheight=0.3)
+        self.operate_frame.place(relx=0.5, rely=0.7, relwidth=0.5, relheight=0.1)
+        self.log_view.place(relx=0.5, rely=0.8, relwidth=0.5, relheight=0.2)
 
-        Button(self.operate_frame, text="保存", command=self.save).pack()
-        Button(self.operate_frame, text="加载", command=self.load).pack()
-        Button(self.operate_frame, text="识别", command=self.parse).pack()
-
+        Button(self.operate_frame, text="保存", command=self.save).pack(side=LEFT, anchor=NW)
+        Button(self.operate_frame, text="加载", command=self.load).pack(side=LEFT, anchor=NW)
+        Button(self.operate_frame, text="识别", command=self.parse).pack(side=LEFT, anchor=NW)
+        Button(self.operate_frame, text="可视化", command=self.visual).pack(side=LEFT, anchor=NW)
+        # ['none', 'surface', 'answer']
+        # + list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+        self.text.tag_config('surface', background="yellow")
+        self.text.tag_config('answer', background="limegreen")
+        for op in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
+            self.text.tag_config(op, background="cyan")
         self.load()
+
+    def visual(self):
+        data = self.text.get('1.0', END)
+        _, ds = [None] * 2
+        try:
+            _, _, _, ds = self.re_root.parse(data)
+        except AttributeError:
+            return
+        del ds['none']
+        for k, v in ds.items():
+            self.text.tag_add(k, f"1.0+{v[0]}c", f"1.0+{v[1]}c")
 
     def parse(self):
         data = self.text.get('1.0', END)
-        _, sp, dt = self.re_root.parse(data)
+        _, sp, dt, ds = [None] * 4
+        try:
+            _, sp, dt, ds = self.re_root.parse(data)
+        except AttributeError:
+            return
         print(sp)
         print(dt)
-        key = 'ABCDEFGH'
+        key = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
         key = {_: i for i, _ in enumerate(key)}
         max_ans = 0
         for k, v in key.items():
@@ -515,13 +543,14 @@ class RExpParse(FrameAll):
             answer[key[k]] = 1
 
         options = []
-        for k in "ABCDEFGH":
+        for k in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
             if k in dt:
                 options.append(dt[k])
 
         q = Question(problemSurface=dt['surface'], answer=answer, options=options, pType=QuestionType.SINGLE)
         print(q)
         global_database.create(q)
+        self.log_question(q)
 
         data = data[sp[1]:]
         self.text.delete("1.0", END)
@@ -541,6 +570,10 @@ class RExpParse(FrameAll):
         self.re_root.load(data)
         self.re_frame.reverse_set()
 
+    def log_question(self, q: Question):
+        self.log_view.delete('1.0', END)
+        self.log_view.insert('1.0', str(q))
+
 
 class Gui:
     def __init__(self):
@@ -557,7 +590,7 @@ class Gui:
             self.root = Tk()
         # self.root = style.master
         self.root.title('CodeCompressor by CSOME')
-        self.root.geometry('800x600+100+100')
+        self.root.geometry('1400x1000+100+100')
         self.root.tk.call('tk', 'scaling', ScaleFactor / 75)
 
         self.menu = Menu(self.root)
@@ -579,13 +612,11 @@ class Gui:
             v.place(relx=0, rely=0, relwidth=1, relheight=1)
             self.notebook.add(v, text=k)
 
-
     def d_switch(self, bank):
         def switch():
             global_database.switch(bank)
 
         return switch
-
 
     def make_frame(self) -> dict:
         self.practice = Practice(self.root)
@@ -603,9 +634,9 @@ class Gui:
 
 if __name__ == '__main__':
     global_database = KVDatabase.getKVDatabase("question", "./bank/test.json")
-    sc = Schedule([global_database])
+    # sc = Schedule([global_database])
     a = Gui()
-    sc.start()
+    # sc.start()
     a.main()
-    sc.stop()
+    # sc.stop()
     print(1)

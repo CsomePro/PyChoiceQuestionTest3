@@ -33,18 +33,27 @@ class RExpNode(ItemValid):
         res = []
         tmp = string[:mc.span(self.group_id)[0]]
         dt_res = {}
+        dt_sp = {}
+        start = mc.span(self.group_id)[0]
         for ch in self.child_node:
-            s, sp, dt = ch.parse(ans)
+            s, sp, dt, dtsp = ch.parse(ans)
             res.append(s)
             dt_res.update(dt)
+            for k in dtsp:
+                # dtsp[k][0] += start
+                # dtsp[k][1] += start
+                dtsp[k] = tuple(map(lambda x: x+start, dtsp[k]))
+            dt_sp.update(dtsp)
             if remove:
                 tmp += ans[:sp[0]]
             else:
                 tmp += ans[:sp[1]]
             ans = ans[sp[1]:]
+            start += sp[1]
         tmp += ans
         dt_res.update({self.tag: tmp if res else ans})
-        return (tmp, tuple(res)) if res else ans, mc.span(self.group_id), dt_res
+        dt_sp.update({self.tag: mc.span(self.group_id) if res else mc.span(self.group_id)})
+        return (tmp, tuple(res)) if res else ans, mc.span(self.group_id), dt_res, dt_sp
 
     def get_groups(self):
         self.compile()
