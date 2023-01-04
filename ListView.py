@@ -44,13 +44,13 @@ class ListView(Canvas):
         self.config(takefocus=False)
         self.content = Frame(self)
         self.frame = self.create_window((0, 0), window=self.content, anchor=NW)
-        self.bind('<Configure>', self.h)
+        # self.bind('<Configure>', self.h)
 
         self.adapter: ItemAdapter = adapter
         self.callback = callback
 
     def h(self, event):
-        self.itemconfig(self.frame, height=event.height, width=event.width)
+        self.itemconfig(self.frame, width=event.width)
 
     def add_item(self, item):
         self.adapter(self.content, item).pack(side=TOP, anchor=W)
